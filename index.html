@@ -840,41 +840,9 @@
             const camera = new THREE.PerspectiveCamera(70, 1, 0.01, 20);
             scene.add(camera);
 
-            function createControllerModel() {
-              const model = new THREE.Group();
-              const shell = new THREE.MeshBasicMaterial({ color: 0x242a24 });
-              const detail = new THREE.MeshBasicMaterial({ color: 0xd4f36a });
-              const grip = new THREE.Mesh(new THREE.CapsuleGeometry(0.022, 0.09, 4, 8), shell);
-              grip.position.set(0, -0.035, 0.015);
-              grip.rotation.z = -0.16;
-              model.add(grip);
-
-              const head = new THREE.Mesh(new THREE.BoxGeometry(0.105, 0.035, 0.075), shell);
-              head.position.set(0, 0.055, -0.012);
-              model.add(head);
-
-              const faceplate = new THREE.Mesh(new THREE.BoxGeometry(0.068, 0.004, 0.042), detail);
-              faceplate.position.set(0, 0.076, 0.002);
-              model.add(faceplate);
-
-              const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.012, 0.028), detail);
-              trigger.position.set(0, 0.022, -0.047);
-              model.add(trigger);
-
-              const thumbstick = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.012, 12), detail);
-              thumbstick.position.set(0.022, 0.082, 0.012);
-              model.add(thumbstick);
-              return model;
-            }
-
             const controllerRecords = [];
             for (let index = 0; index < 2; index += 1) {
               const controller = renderer.xr.getController(index);
-              const grip = renderer.xr.getControllerGrip(index);
-              const model = createControllerModel();
-              model.visible = false;
-              grip.add(model);
-              scene.add(grip);
               const rayGeometry = new THREE.BufferGeometry().setFromPoints([
                 new THREE.Vector3(0, 0, -0.04),
                 new THREE.Vector3(0, 0, -1.5)
@@ -889,12 +857,10 @@
               controllerRecords.push(record);
               scene.add(controller);
               controller.addEventListener("connected", (event) => {
-                model.visible = Boolean(event.data.gamepad);
                 ray.visible = Boolean(event.data.gamepad);
                 record.inputSource = event.data;
               });
               controller.addEventListener("disconnected", () => {
-                model.visible = false;
                 ray.visible = false;
                 record.inputSource = null;
                 record.dragging = null;
@@ -966,7 +932,7 @@
               new THREE.PlaneGeometry(0.42, 0.36),
               new THREE.MeshBasicMaterial({ map: xrControlTexture, transparent: true, depthTest: false, depthWrite: false })
             );
-            xrControlPanel.position.set(-0.58, 0.27, -0.82);
+            xrControlPanel.position.set(-0.42, 0.2, -0.72);
             xrControlPanel.renderOrder = 20;
             camera.add(xrControlPanel);
 
@@ -1191,6 +1157,9 @@
             function togglePlacement() {
               if (isFixed) {
                 isFixed = false;
+                hasBeenPlaced = false;
+                if (placementAnchor) placementAnchor.delete();
+                placementAnchor = null;
                 placeSketchButton.textContent = "Fix it here";
                 xrPlacementHint.textContent = "Aim at a new surface and press the trigger to place again";
                 updateActionButton("FIX IT HERE");
@@ -1341,9 +1310,9 @@
                   if (placementAnchor && hasBeenPlaced) {
                     const anchorPose = frame.getPose(placementAnchor.anchorSpace, referenceSpace);
                     if (anchorPose) placement.matrix.fromArray(anchorPose.transform.matrix);
-                  } else if (!hasBeenPlaced && targetMatrix) {
+                  } else if (!isFixed && targetMatrix) {
                     placement.matrix.copy(targetMatrix);
-                  } else if (!hasBeenPlaced && viewerPose) {
+                  } else if (!isFixed && viewerPose) {
                     placement.matrix.fromArray(viewerPose.transform.matrix).multiply(previewOffset);
                   }
 
@@ -1392,8 +1361,6 @@
               statusText.textContent = "Camera off";
               bottomNote.textContent = "Waiting for camera";
             });
-
-            placeSketchButton.addEventListener("click", togglePlacement);
 
             xrButton.hidden = false;
             fixSketchButton.textContent = "Fix in room";
