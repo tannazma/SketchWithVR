@@ -4,10 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#101311">
-    <title>Field / Camera</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Sketch VR</title>
     <style>
       :root {
         color-scheme: dark;
@@ -516,12 +513,142 @@
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
       }
+
+      :root {
+        color-scheme: light;
+      }
+
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #fff;
+        color: #111;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        font-family: sans-serif;
+      }
+
+      .app-bar {
+        z-index: 5;
+        display: flex;
+        min-height: 44px;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+      }
+
+      .app-title {
+        margin: 0 8px 0 0;
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .image-upload-input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+      }
+
+      .toolbar-button, .upload-button {
+        display: inline-flex;
+        min-height: 32px;
+        align-items: center;
+        justify-content: center;
+        padding: 4px 8px;
+        color: inherit;
+        cursor: pointer;
+        font: inherit;
+      }
+
+      .toolbar-button[hidden] { display: none; }
+
+      .app-status {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        margin-left: auto;
+        color: inherit;
+        font-size: 12px;
+      }
+
+      .stage {
+        flex: 1;
+        width: 100%;
+        min-height: 0;
+        isolation: isolate;
+        background: #eee;
+      }
+
+      .camera-feed { background: #eee; }
+
+      .sketch-controls {
+        top: 12px;
+        right: 12px;
+        bottom: auto;
+        width: min(280px, calc(100vw - 24px));
+        padding: 8px;
+        background: rgba(255, 255, 255, .9);
+      }
+
+      .sketch-control {
+        color: #111;
+        font: 12px sans-serif;
+        text-transform: none;
+      }
+
+      .sketch-control output { color: inherit; }
+
+      .fix-sketch-button {
+        color: inherit;
+        font: 12px sans-serif;
+        text-transform: none;
+      }
+
+      .error-message {
+        min-height: 0;
+        margin: 0;
+        padding: 0 12px;
+        color: #900;
+        font: 13px/1.4 sans-serif;
+      }
+
+      .error-message:empty { display: none; }
+
+      body.xr-active .app-bar { display: none; }
+
+      @media (max-width: 600px) {
+        .app-bar { flex-wrap: wrap; }
+        .app-title { margin-right: auto; }
+        .app-status { margin-left: 0; }
+        .stage { min-height: 0; }
+        .sketch-overlay { width: min(72vw, 360px); max-height: 70vh; }
+        .sketch-controls { right: 8px; width: min(280px, calc(100vw - 16px)); }
+      }
     </style>
   </head>
   <body>
+    <header class="app-bar">
+      <h1 class="app-title">Sketch VR</h1>
+      <input class="image-upload-input" id="imageUpload" type="file" accept="image/*" aria-label="Choose an image">
+      <label class="toolbar-button upload-button" for="imageUpload">Upload image</label>
+      <button class="toolbar-button" id="startButton" type="button"><span>Start camera</span></button>
+      <button class="toolbar-button xr-start-button" id="xrButton" type="button" hidden>Enter headset VR</button>
+      <div class="app-status">
+        <span id="statusText" aria-live="polite">Camera off</span>
+        <span id="bottomNote">Waiting for camera</span>
+      </div>
+      <button class="toolbar-button" id="flipButton" type="button" hidden>Switch camera</button>
+      <button class="toolbar-button" id="stopButton" type="button" hidden>Stop camera</button>
+    </header>
+
     <main class="stage" id="stage">
       <video class="camera-feed" id="cameraFeed" autoplay muted playsinline aria-label="Live camera view"></video>
-      <div class="wash" aria-hidden="true"></div>
       <img class="sketch-overlay" src="sketch-1.jpg" alt="Sketch reference" draggable="false">
       <div class="sketch-controls" id="sketchControls" aria-label="Sketch adjustments">
         <label class="sketch-control" for="sketchSize">
@@ -536,44 +663,8 @@
         </label>
         <button class="fix-sketch-button" id="fixSketchButton" type="button" aria-pressed="false">Fix in place</button>
       </div>
-
-      <header class="topbar">
-        <div class="wordmark"><span class="wordmark-mark">F</span><span>Field / Camera</span></div>
-        <div class="status" aria-live="polite"><span class="status-dot"></span><span id="statusText">Camera off</span></div>
-      </header>
-
-      <div class="viewfinder" aria-hidden="true">
-        <span class="finder-corner top-right"></span>
-        <span class="finder-corner bottom-left"></span>
-        <span class="crosshair"></span>
-      </div>
-
-      <section class="idle-copy" aria-label="Camera controls">
-        <p class="eyebrow">Live view / 01</p>
-        <h1>Look closer<span>.</span></h1>
-        <div class="action-row">
-          <button class="start-button" id="startButton" type="button">
-            <span>Start camera</span><span class="button-arrow" aria-hidden="true">↗</span>
-          </button>
-          <button class="xr-start-button" id="xrButton" type="button" hidden>Enter headset AR</button>
-        </div>
-        <p class="error-message" id="errorMessage" role="status"></p>
-      </section>
-
-      <div class="side-readout" aria-hidden="true">Environment / visible</div>
-
-      <footer class="bottombar">
-        <span class="bottom-note" id="bottomNote">Waiting for camera</span>
-        <div class="controls">
-          <button class="control-button" id="flipButton" type="button" aria-label="Switch camera" title="Switch camera" hidden>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7h-4V3"/><path d="M4 17h4v4"/><path d="M5.64 9A7 7 0 0 1 17.5 5.5L20 7M4 17l2.5 1.5A7 7 0 0 0 18.36 15"/></svg>
-          </button>
-          <button class="control-button" id="stopButton" type="button" aria-label="Stop camera" title="Stop camera" hidden>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
-          </button>
-        </div>
-      </footer>
     </main>
+    <p class="error-message" id="errorMessage" role="status"></p>
     <div class="xr-hud" id="xrHud">
       <div class="xr-placement-controls">
         <p class="xr-placement-hint" id="xrPlacementHint">Aim at a surface to position the sketch</p>
@@ -590,6 +681,7 @@
       const xrButton = document.querySelector("#xrButton");
       const flipButton = document.querySelector("#flipButton");
       const stopButton = document.querySelector("#stopButton");
+      const imageUpload = document.querySelector("#imageUpload");
       const sketch = document.querySelector(".sketch-overlay");
       const sketchControls = document.querySelector("#sketchControls");
       const sketchSize = document.querySelector("#sketchSize");
@@ -598,6 +690,7 @@
       const sketchOpacityValue = document.querySelector("#sketchOpacityValue");
       const fixSketchButton = document.querySelector("#fixSketchButton");
       let stream = null;
+      let uploadedImageUrl = null;
       let facingMode = "environment";
       let isSketchFixed = false;
 
@@ -634,11 +727,35 @@
       window.addEventListener("resize", updateSketchAdjustments);
       updateSketchAdjustments();
 
-      fixSketchButton.addEventListener("click", () => {
-        if (!xrButton.hidden) {
-          document.dispatchEvent(new Event("start-room-anchor"));
+      imageUpload.addEventListener("change", () => {
+        const image = imageUpload.files?.[0];
+        imageUpload.value = "";
+        if (!image) return;
+        if (!image.type.startsWith("image/")) {
+          errorMessage.textContent = "Choose an image file.";
           return;
         }
+
+        const nextImageUrl = URL.createObjectURL(image);
+        sketch.addEventListener("load", () => {
+          if (uploadedImageUrl) URL.revokeObjectURL(uploadedImageUrl);
+          uploadedImageUrl = nextImageUrl;
+          bottomNote.textContent = image.name;
+          errorMessage.textContent = "";
+          document.dispatchEvent(new Event("sketchimagechange"));
+        }, { once: true });
+        sketch.addEventListener("error", () => {
+          URL.revokeObjectURL(nextImageUrl);
+          errorMessage.textContent = `Could not load ${image.name}. Choose a different image.`;
+        }, { once: true });
+        sketch.src = nextImageUrl;
+      });
+
+      window.addEventListener("beforeunload", () => {
+        if (uploadedImageUrl) URL.revokeObjectURL(uploadedImageUrl);
+      });
+
+      fixSketchButton.addEventListener("click", () => {
         isSketchFixed = !isSketchFixed;
         fixSketchButton.setAttribute("aria-pressed", String(isSketchFixed));
         fixSketchButton.textContent = isSketchFixed ? "Move sketch" : "Fix in place";
@@ -789,15 +906,18 @@
       const sketchControls = document.querySelector("#sketchControls");
 
       if (!window.isSecureContext) {
-        errorMessage.textContent = "Camera and headset AR need a secure page. On a headset, use HTTPS with a certificate trusted by that headset; localhost only works on this device.";
+        errorMessage.textContent = "Camera and headset XR need a secure page. On a headset, use HTTPS with a certificate trusted by that headset; localhost only works on this device.";
       } else if (!navigator.xr) {
-        errorMessage.textContent = "Headset AR is unavailable in this browser. Open this page in a WebXR-capable headset browser.";
+        errorMessage.textContent = "Headset XR is unavailable in this browser. Open this page in a WebXR-capable browser or enable the Immersive Web Emulator.";
       } else {
         try {
-          const supported = await navigator.xr.isSessionSupported("immersive-ar");
-          if (!supported) {
-            errorMessage.textContent = "Headset AR is not supported on this device. The camera preview still works here.";
+          const arSupported = await navigator.xr.isSessionSupported("immersive-ar");
+          const vrSupported = await navigator.xr.isSessionSupported("immersive-vr");
+          if (!arSupported && !vrSupported) {
+            errorMessage.textContent = "Immersive AR and VR are unavailable. Enable the Immersive Web Emulator or use a supported headset browser.";
           } else {
+            const xrSessionMode = arSupported ? "immersive-ar" : "immersive-vr";
+            xrButton.textContent = arSupported ? "Enter headset AR" : "Test in VR emulator";
             const THREE = await import("https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js");
             const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
             renderer.xr.enabled = true;
@@ -951,6 +1071,13 @@
             document.addEventListener("sketchadjust", (event) => {
               overlay.scale.set(event.detail.size, event.detail.size, 1);
               material.opacity = Math.max(0, Math.min(1, event.detail.opacity));
+            });
+            document.addEventListener("sketchimagechange", () => {
+              texture.needsUpdate = true;
+              const aspect = sketch.naturalWidth / sketch.naturalHeight;
+              const width = Math.min(0.65, 0.65 * aspect);
+              overlay.geometry.dispose();
+              overlay.geometry = new THREE.PlaneGeometry(width, width / aspect);
             });
             document.addEventListener("sketchmove", (event) => {
               overlay.position.x += event.detail.x * 0.04;
@@ -1151,8 +1278,8 @@
               document.querySelector("#stage").classList.remove("is-live");
               flipButton.hidden = true;
               stopButton.hidden = true;
-              statusText.textContent = "Headset AR live";
-              bottomNote.textContent = "Passthrough active";
+              statusText.textContent = xrSessionMode === "immersive-ar" ? "Headset AR live" : "VR emulator live";
+              bottomNote.textContent = xrSessionMode === "immersive-ar" ? "Passthrough active" : "Test mode · no passthrough";
               errorMessage.textContent = "";
               isFixed = false;
               hasBeenPlaced = false;
@@ -1302,17 +1429,14 @@
             });
 
             xrButton.hidden = false;
-            fixSketchButton.textContent = "Fix in room";
-            fixSketchButton.title = "Enter headset AR to anchor the sketch to a room surface";
             async function startXRSession() {
               if (xrButton.disabled) return;
               xrButton.disabled = true;
               errorMessage.textContent = "";
               let session = null;
               try {
-                session = await navigator.xr.requestSession("immersive-ar", {
-                  requiredFeatures: ["plane-detection"],
-                  optionalFeatures: ["local-floor", "anchors"]
+                session = await navigator.xr.requestSession(xrSessionMode, {
+                  optionalFeatures: ["plane-detection", "local-floor", "anchors"]
                 });
                 await renderer.xr.setSession(session);
               } catch (error) {
@@ -1324,7 +1448,6 @@
             }
 
             xrButton.addEventListener("click", startXRSession);
-            document.addEventListener("start-room-anchor", startXRSession);
 
           }
         } catch (error) {
